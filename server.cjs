@@ -442,6 +442,15 @@ function refundSeatStake(room, role) {
   saveStoreAtomic(balanceStore);
 }
 
+function forfeitSeatStake(room, role) {
+  const e = room?.escrow?.[role];
+  if (!e || !e.locked) return;
+  const currency = normalizeCurrency(e.currency || room.currency || DEFAULT_CURRENCY) || DEFAULT_CURRENCY;
+  balanceStore.platform.earned[currency] = roundMoney((balanceStore.platform.earned[currency] || 0) + e.pot);
+  delete room.escrow[role];
+  saveStoreAtomic(balanceStore);
+}
+
 function markHardLose(room, state, role) {
   if (!state || !role) return;
   if (!state.hardLoseRoles) state.hardLoseRoles = {};
@@ -569,7 +578,7 @@ function markFinishChanges(room, state) {
   }
 }
 
-let tgUpdateOffset = 0;
+tgUpdateOffset = 0;
 async function tgApi(method, payload) {
   if (!process.env.BOT_TOKEN) throw new Error("bot_token_missing");
   const r = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/${method}`, {
@@ -662,8 +671,6 @@ function roomToListItem(room) {
     winMode: room.winMode,
     allowTransfer: !!room.allowTransfer,
     throwInMode: room.throwInMode || "all",
-    stake: Number(room.stake || DEFAULT_STAKE),
-    currency: room.currency || DEFAULT_CURRENCY,
     stake: Number(room.stake || DEFAULT_STAKE),
     currency: room.currency || DEFAULT_CURRENCY,
     playersCount,
@@ -1591,7 +1598,6 @@ function onTimeout(room) {
   if (state.phase === "finished") return;
 
   normalizeTurn(room, state);
-
   const active = computeActiveRole(state, room);
   if (!active) return;
 
@@ -1614,9 +1620,17 @@ function onTimeout(room) {
     return;
   }
 
-  // resign active
+  if (state.phase === "taking") {
+    const next = applyAction(room, state, active, { kind:"pass" });
+    if (next) room.state = next;
+    scheduleTurnTimer(room);
+    broadcastGameState(room);
+    return;
+  }
+
+  const mustAttackNow = active === state.attacker && state.phase === "attack" && !anyOnTable;
   const next = applyAction(room, state, active, { kind:"resign" });
-  if (active === state.attacker) markHardLose(room, state, active);
+  if (mustAttackNow) markHardLose(room, state, active);
   if (next) room.state = next;
   clearRoomTimer(room);
   broadcastGameState(room);
@@ -1876,7 +1890,8 @@ function leaveRoom(ws) {
 
   // lobby or finished state: remove immediately
   userToRoom.delete(userKey);
-  refundSeatStake(room, pl.role);
+  if (room.state) refundSeatStake(room, pl.role);
+  else forfeitSeatStake(room, pl.role);
   room.players = room.players.filter(p => p.userKey !== userKey);
   if (room.players.length === 0) {
     deleteRoomIfEmpty(room);
@@ -1917,12 +1932,6 @@ function createRoomForHost({ hostWs, userKey, profile, maxPlayers, winMode, allo
     readyDeadlineTs: null,
     escrow: {}
   };
-
-  const lock = lockSeatStake(room, "p1", userKey);
-  if (!lock.ok) {
-    send(hostWs, { type:"error", message: lock.error || "Недостаточно средств" });
-    return null;
-  }
 
   const lock = lockSeatStake(room, "p1", userKey);
   if (!lock.ok) {
@@ -2090,9 +2099,13 @@ wss.on("connection", (ws) => {
       const profile = sanitizeProfile(msg.profile);
       setUserMetaFromProfile(parseUserId(userKey), profile);
 
-      const quickCurrency = "stars";
-      const quickStake = Number(msg.stake || 50);
-      if (!Number.isInteger(quickStake) || quickStake < 50 || quickStake % 50 !== 0) {
+      const quickCurrency = normalizeCurrency(msg.currency || (Number(msg.stake) === 1 ? "ton" : "stars")) || "stars";
+      const quickStake = Number(msg.stake || (quickCurrency === "ton" ? 1 : 50));
+      if (quickCurrency === "ton" && (!Number.isInteger(quickStake) || quickStake < 1)) {
+        send(ws, { type:"error", message:"Ставка TON: минимум 1, шаг 1" });
+        return;
+      }
+      if (quickCurrency === "stars" && (!Number.isInteger(quickStake) || quickStake < 50 || quickStake % 50 !== 0)) {
         send(ws, { type:"error", message:"Ставка Stars: минимум 50, шаг 50" });
         return;
       }
@@ -2187,8 +2200,8 @@ wss.on("connection", (ws) => {
       const winMode = (msg.winMode === "draw") ? "draw" : "classic";
       const allowTransfer = !!msg.allowTransfer;
       const throwInMode = (msg.throwInMode === "neighbors" && maxPlayers >= 4) ? "neighbors" : "all";
-      const isPrivate = !!msg.isPrivate;
       const password = safeStr(msg.password || "", 32);
+      const isPrivate = password.length > 0;
       const currency = normalizeCurrency(msg.currency || DEFAULT_CURRENCY);
       const stake = Number(msg.stake);
       if (!currency) { send(ws, { type:"error", message:"Некорректная валюта" }); return; }
