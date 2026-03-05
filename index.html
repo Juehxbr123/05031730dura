@@ -942,6 +942,7 @@
         <div class="row" style="justify-content:space-between;">
           <div class="title">Публичные лобби</div>
           <button class="btn gray" id="btnRefreshPub">Обновить</button>
+          <div class="balanceChip tabBalance">TON: 0 • ⭐: 0</div>
         </div>
         <div style="height:10px;"></div>
         <div class="row" style="gap:8px; flex-wrap:wrap;">
@@ -961,6 +962,7 @@
         <div class="row" style="justify-content:space-between;">
           <div class="title">Закрытые лобби</div>
           <button class="btn gray" id="btnRefreshPriv">Обновить</button>
+          <div class="balanceChip tabBalance">TON: 0 • ⭐: 0</div>
         </div>
         <div style="height:10px;"></div>
         <div class="filtersGrid">
@@ -977,7 +979,10 @@
     <!-- CREATE -->
     <div class="screen" id="screenCreate">
       <div class="cardPanel">
-        <div class="title">Создать лобби</div>
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <div class="title">Создать лобби</div>
+          <div class="balanceChip tabBalance">TON: 0 • ⭐: 0</div>
+        </div>
         <div style="height:10px;"></div>
 
         <div class="row" style="align-items:center; gap:10px;">
@@ -1407,7 +1412,9 @@
             stars: Number(msg.balances.stars || 0)
           };
         }
+        if (msg.walletAddress) linkedWalletAddress = String(msg.walletAddress);
         renderBalance();
+        syncTonTopupUi();
         return;
       }
 
