@@ -14,6 +14,13 @@ const DEFAULT_CURRENCY = "ton";
 const dataDir = path.join(__dirname, "data");
 const balancesPath = path.join(dataDir, "balances.json");
 const ordersPath = path.join(dataDir, "orders.json");
+const TONCONNECT_MANIFEST = {
+  url: "https://evil-cards.example",
+  name: "303Dura",
+  iconUrl: "https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg",
+  termsOfUseUrl: "https://t.me/evil_cardsbot",
+  privacyPolicyUrl: "https://t.me/evil_cardsbot"
+};
 
 function loadStore() {
   try {
@@ -127,6 +134,27 @@ function setUserMetaFromProfile(userId, profile) {
 }
 
 const server = http.createServer((req, res) => {
+  if (req.method === "GET" && req.url === "/tonconnect-manifest.json") {
+    const host = req.headers.host || "localhost";
+    const proto = (req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
+    const manifest = { ...TONCONNECT_MANIFEST, url: `${proto}://${host}` };
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(manifest));
+    return;
+  }
+
+  if (req.method === "GET" && (req.url === "/" || req.url.startsWith("/?"))) {
+    try {
+      const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
+    } catch {
+      res.writeHead(500);
+      res.end("index_missing");
+    }
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/admin/topup") {
     let body = "";
     req.on("data", (c) => { body += c; });
@@ -442,104 +470,11 @@ function refundSeatStake(room, role) {
   saveStoreAtomic(balanceStore);
 }
 
-function markHardLose(room, state, role) {
-  if (!state || !role) return;
-  if (!state.hardLoseRoles) state.hardLoseRoles = {};
-  state.hardLoseRoles[role] = true;
-}
-
-function markFinishChanges(room, state) {
-  if (!state || !state.players) return;
-  if (!state.finishedSet) state.finishedSet = {};
-  if (!Array.isArray(state.finishedOrder)) state.finishedOrder = [];
-  const newFinishers = [];
-  for (const role of room.roles) {
-    const handLen = state.players?.[role]?.hand?.length ?? 0;
-    if (handLen === 0 && !state.finishedSet[role]) newFinishers.push(role);
-  }
-  if (newFinishers.length > 0) {
-    for (const role of newFinishers) {
-      state.finishedSet[role] = true;
-      state.finishedOrder.push(role);
-    }
-    state.lastFinishGroup = newFinishers;
-    if (!state.mainWinner) state.mainWinner = state.finishedOrder[0] || null;
-  }
-}
-
-let tgUpdateOffset = 0;
-async function tgApi(method, payload) {
-  if (!process.env.BOT_TOKEN) throw new Error("bot_token_missing");
-  const r = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload || {})
-  });
-  return r.json();
-}
-
-function parseStarsPayload(s) {
-  const m = String(s || "").match(/^topup_stars:([^:]+):(\d+):(.+)$/);
-  if (!m) return null;
-  return { userId: m[1], stars: Number(m[2]), nonce: m[3] };
-}
-
-async function processTgUpdate(u) {
-  try {
-    if (u.pre_checkout_query?.id) {
-      await tgApi("answerPreCheckoutQuery", { pre_checkout_query_id: u.pre_checkout_query.id, ok: true });
-    }
-    const sp = u.message?.successful_payment;
-    if (!sp) return;
-    const parsed = parseStarsPayload(sp.invoice_payload);
-    if (!parsed || !parsed.userId || !Number.isInteger(parsed.stars) || parsed.stars <= 0) return;
-    ensureUserBalance(parsed.userId).balances.stars = roundMoney(ensureUserBalance(parsed.userId).balances.stars + parsed.stars);
-    saveStoreAtomic(balanceStore);
-    pushBalanceToUser(parsed.userId);
-  } catch {}
-}
-
-async function pollTelegramUpdates() {
-  if (!process.env.BOT_TOKEN) return;
-  try {
-    const r = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/getUpdates?timeout=20&offset=${tgUpdateOffset}`);
-    const j = await r.json();
-    if (!j?.ok || !Array.isArray(j.result)) return;
-    for (const upd of j.result) {
-      tgUpdateOffset = Math.max(tgUpdateOffset, Number(upd.update_id || 0) + 1);
-      await processTgUpdate(upd);
-    }
-  } catch {}
-}
-
-function roundMoney(v) {
-  return Math.round((Number(v) || 0) * 100) / 100;
-}
-
-function lockSeatStake(room, role, userKey) {
-  const userId = parseUserId(userKey);
-  if (!userId) return { ok: false, error: "Нет userId" };
-  const stake = Number(room.stake || DEFAULT_STAKE);
-  const currency = normalizeCurrency(room.currency || DEFAULT_CURRENCY);
-  if (!Number.isFinite(stake) || stake <= 0) return { ok: false, error: "Некорректная ставка" };
-  if (!currency) return { ok: false, error: "Некорректная валюта" };
-  const user = ensureUserBalance(userId);
-  if ((user.balances[currency] || 0) < stake) return { ok: false, error: "Недостаточно средств" };
-  const fee = roundMoney(stake * 0.1);
-  const pot = roundMoney(stake - fee);
-  user.balances[currency] = roundMoney(user.balances[currency] - stake);
-  balanceStore.platform.earned[currency] = roundMoney((balanceStore.platform.earned[currency] || 0) + fee);
-  room.escrow[role] = { userId, stake, currency, pot, fee, locked: true };
-  saveStoreAtomic(balanceStore);
-  return { ok: true, userId };
-}
-
-function refundSeatStake(room, role) {
+function forfeitSeatStake(room, role) {
   const e = room?.escrow?.[role];
   if (!e || !e.locked) return;
   const currency = normalizeCurrency(e.currency || room.currency || DEFAULT_CURRENCY) || DEFAULT_CURRENCY;
-  ensureUserBalance(e.userId).balances[currency] = roundMoney(ensureUserBalance(e.userId).balances[currency] + e.stake);
-  balanceStore.platform.earned[currency] = roundMoney((balanceStore.platform.earned[currency] || 0) - e.fee);
+  balanceStore.platform.earned[currency] = roundMoney((balanceStore.platform.earned[currency] || 0) + e.pot);
   delete room.escrow[role];
   saveStoreAtomic(balanceStore);
 }
@@ -591,6 +526,40 @@ async function processTgUpdate(u) {
     if (u.pre_checkout_query?.id) {
       await tgApi("answerPreCheckoutQuery", { pre_checkout_query_id: u.pre_checkout_query.id, ok: true });
     }
+    const txt = String(u.message?.text || "").trim();
+    if (txt.startsWith("/balance ")) {
+      const adminIds = String(process.env.ADMIN_TG_IDS || "").split(",").map(s => s.trim()).filter(Boolean);
+      const fromId = String(u.message?.from?.id || "");
+      const chatId = u.message?.chat?.id;
+      if (!adminIds.includes(fromId)) {
+        if (chatId) await tgApi("sendMessage", { chat_id: chatId, text: "Нет прав на /balance" });
+        return;
+      }
+      const m = txt.match(/^\/balance\s+@?(\S+)\s+(\d+(?:\.\d+)?)\s+(TON|STARS)$/i);
+      if (!m) {
+        if (chatId) await tgApi("sendMessage", { chat_id: chatId, text: "Формат: /balance @username X TON|STARS" });
+        return;
+      }
+      const uname = String(m[1] || "").toLowerCase();
+      const amount = Number(m[2] || 0);
+      const currency = normalizeCurrency(m[3]);
+      if (!currency || !Number.isFinite(amount) || amount <= 0) {
+        if (chatId) await tgApi("sendMessage", { chat_id: chatId, text: "Некорректная сумма/валюта" });
+        return;
+      }
+      const userId = Object.keys(balanceStore.users || {}).find(id => String(balanceStore.users[id]?.username || "").toLowerCase() === uname);
+      if (!userId) {
+        if (chatId) await tgApi("sendMessage", { chat_id: chatId, text: `Пользователь @${uname} не найден` });
+        return;
+      }
+      const row = ensureUserBalance(userId);
+      row.balances[currency] = roundMoney((row.balances[currency] || 0) + amount);
+      saveStoreAtomic(balanceStore);
+      pushBalanceToUser(userId);
+      if (chatId) await tgApi("sendMessage", { chat_id: chatId, text: `Начислено @${uname}: +${amount} ${currency.toUpperCase()}` });
+      return;
+    }
+
     const sp = u.message?.successful_payment;
     if (!sp) return;
     const parsed = parseStarsPayload(sp.invoice_payload);
@@ -613,7 +582,6 @@ async function pollTelegramUpdates() {
     }
   } catch {}
 }
-
 
 /** ======================
  *  Data
@@ -662,8 +630,6 @@ function roomToListItem(room) {
     winMode: room.winMode,
     allowTransfer: !!room.allowTransfer,
     throwInMode: room.throwInMode || "all",
-    stake: Number(room.stake || DEFAULT_STAKE),
-    currency: room.currency || DEFAULT_CURRENCY,
     stake: Number(room.stake || DEFAULT_STAKE),
     currency: room.currency || DEFAULT_CURRENCY,
     playersCount,
@@ -1216,73 +1182,6 @@ function settleRoomPayouts(room, state) {
   }
 }
 
-function settleRoomPayouts(room, state) {
-  if (!state || state.payoutBreakdown) return;
-  const mode = room.winMode;
-  const roles = Object.keys(room.escrow || {});
-  const N = roles.length;
-  const S = Number(room.stake || DEFAULT_STAKE);
-  const currency = normalizeCurrency(room.currency || DEFAULT_CURRENCY) || DEFAULT_CURRENCY;
-  const basePool = roundMoney(0.9 * N * S);
-  const winners = Array.isArray(state.winners) ? state.winners.slice() : [];
-  const losers = Array.isArray(state.losers) && state.losers.length ? state.losers.slice() : (state.loser ? [state.loser] : []);
-  let mainWinner = state.mainWinner || (state.finishedOrder?.[0] || null);
-  if (mainWinner && !winners.includes(mainWinner)) mainWinner = winners[0] || null;
-
-  let winnersPool = basePool;
-  let platformEarnedDelta = 0;
-  const perRole = {};
-  const hardLoseRoles = state.hardLoseRoles || {};
-  for (const role of roles) {
-    const e = room.escrow?.[role] || null;
-    perRole[role] = {
-      userId: e?.userId || null,
-      stake: e?.stake || S,
-      fee: e?.fee || roundMoney(S * 0.1),
-      pot: e?.pot || roundMoney(S * 0.9),
-      hardLose: !!hardLoseRoles[role],
-      payout: 0,
-      refund: 0
-    };
-  }
-
-  if (mode === "draw") {
-    let nonHardK = 0;
-    for (const role of losers) {
-      if (hardLoseRoles[role]) continue;
-      nonHardK += 1;
-      const refund = roundMoney(0.5 * S);
-      perRole[role].refund = refund;
-      ensureUserBalance(perRole[role].userId).balances[currency] = roundMoney(ensureUserBalance(perRole[role].userId).balances[currency] + refund);
-      const feeDelta = roundMoney(0.25 * S);
-      balanceStore.platform.earned[currency] = roundMoney((balanceStore.platform.earned[currency] || 0) + feeDelta);
-      platformEarnedDelta = roundMoney(platformEarnedDelta + feeDelta);
-    }
-    winnersPool = roundMoney(basePool - (0.25 * nonHardK * S));
-  }
-
-  const W = winners.length;
-  if (W > 0) {
-    const totalShares = W + 1;
-    const mw = mainWinner || winners[0];
-    for (const role of winners) {
-      const share = role === mw ? 2 / totalShares : 1 / totalShares;
-      const payout = roundMoney(winnersPool * share);
-      perRole[role].payout = roundMoney(perRole[role].payout + payout);
-      ensureUserBalance(perRole[role].userId).balances[currency] = roundMoney(ensureUserBalance(perRole[role].userId).balances[currency] + payout);
-    }
-  } else {
-    balanceStore.platform.earned[currency] = roundMoney((balanceStore.platform.earned[currency] || 0) + winnersPool);
-    platformEarnedDelta = roundMoney(platformEarnedDelta + winnersPool);
-  }
-
-  saveStoreAtomic(balanceStore);
-  state.payoutBreakdown = { mode, N, S, currency, basePool, winnersPool, winners, losers, mainWinner: mainWinner || null, perRole, platformEarnedDelta };
-  for (const p of room.players || []) {
-    if (p?.ws && p.userKey) sendBalanceToWs(p.ws, parseUserId(p.userKey));
-  }
-}
-
 function removeRoleFromGame(room, state, role, toDiscard = true) {
   if (!room.roles.includes(role)) return;
 
@@ -1591,7 +1490,6 @@ function onTimeout(room) {
   if (state.phase === "finished") return;
 
   normalizeTurn(room, state);
-
   const active = computeActiveRole(state, room);
   if (!active) return;
 
@@ -1614,9 +1512,17 @@ function onTimeout(room) {
     return;
   }
 
-  // resign active
+  if (state.phase === "taking") {
+    const next = applyAction(room, state, active, { kind:"pass" });
+    if (next) room.state = next;
+    scheduleTurnTimer(room);
+    broadcastGameState(room);
+    return;
+  }
+
+  const mustAttackNow = active === state.attacker && state.phase === "attack" && !anyOnTable;
   const next = applyAction(room, state, active, { kind:"resign" });
-  if (active === state.attacker) markHardLose(room, state, active);
+  if (mustAttackNow) markHardLose(room, state, active);
   if (next) room.state = next;
   clearRoomTimer(room);
   broadcastGameState(room);
@@ -1876,7 +1782,8 @@ function leaveRoom(ws) {
 
   // lobby or finished state: remove immediately
   userToRoom.delete(userKey);
-  refundSeatStake(room, pl.role);
+  if (room.state) refundSeatStake(room, pl.role);
+  else forfeitSeatStake(room, pl.role);
   room.players = room.players.filter(p => p.userKey !== userKey);
   if (room.players.length === 0) {
     deleteRoomIfEmpty(room);
@@ -1917,12 +1824,6 @@ function createRoomForHost({ hostWs, userKey, profile, maxPlayers, winMode, allo
     readyDeadlineTs: null,
     escrow: {}
   };
-
-  const lock = lockSeatStake(room, "p1", userKey);
-  if (!lock.ok) {
-    send(hostWs, { type:"error", message: lock.error || "Недостаточно средств" });
-    return null;
-  }
 
   const lock = lockSeatStake(room, "p1", userKey);
   if (!lock.ok) {
@@ -2090,9 +1991,13 @@ wss.on("connection", (ws) => {
       const profile = sanitizeProfile(msg.profile);
       setUserMetaFromProfile(parseUserId(userKey), profile);
 
-      const quickCurrency = "stars";
-      const quickStake = Number(msg.stake || 50);
-      if (!Number.isInteger(quickStake) || quickStake < 50 || quickStake % 50 !== 0) {
+      const quickCurrency = normalizeCurrency(msg.currency || (Number(msg.stake) === 1 ? "ton" : "stars")) || "stars";
+      const quickStake = Number(msg.stake || (quickCurrency === "ton" ? 1 : 50));
+      if (quickCurrency === "ton" && (!Number.isInteger(quickStake) || quickStake < 1)) {
+        send(ws, { type:"error", message:"Ставка TON: минимум 1, шаг 1" });
+        return;
+      }
+      if (quickCurrency === "stars" && (!Number.isInteger(quickStake) || quickStake < 50 || quickStake % 50 !== 0)) {
         send(ws, { type:"error", message:"Ставка Stars: минимум 50, шаг 50" });
         return;
       }
@@ -2187,8 +2092,8 @@ wss.on("connection", (ws) => {
       const winMode = (msg.winMode === "draw") ? "draw" : "classic";
       const allowTransfer = !!msg.allowTransfer;
       const throwInMode = (msg.throwInMode === "neighbors" && maxPlayers >= 4) ? "neighbors" : "all";
-      const isPrivate = !!msg.isPrivate;
       const password = safeStr(msg.password || "", 32);
+      const isPrivate = password.length > 0;
       const currency = normalizeCurrency(msg.currency || DEFAULT_CURRENCY);
       const stake = Number(msg.stake);
       if (!currency) { send(ws, { type:"error", message:"Некорректная валюта" }); return; }

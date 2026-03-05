@@ -236,6 +236,10 @@
       outline:none;
       touch-action: manipulation;
     }
+    .stakeSlider{ width:100%; accent-color:#38bdf8; }
+    .profileTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .balanceChip{ padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.12); font-size:12px; font-weight:900; white-space:nowrap; width:fit-content; margin-left:auto; }
+    .filtersGrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 
     .switch{
       display:flex; align-items:center; gap:10px;
@@ -840,6 +844,8 @@
       .deckPanel{
         left: calc(-12px + var(--safe-l));
       }
+      .filtersGrid{ grid-template-columns:1fr; }
+      .balanceChip{ font-size:11px; padding:3px 8px; }
     }
     @media (min-width: 900px){
       :root{
@@ -865,11 +871,14 @@
   </div>
 
   <div class="app" id="app">
+    <div class="cardPanel" style="padding:8px 12px; margin-bottom:8px;">
+      <div class="muted" id="globalBalance">TON: 0 • ⭐: 0</div>
+    </div>
 
     <!-- PROFILE -->
     <div class="screen active" id="screenProfile">
       <div class="cardPanel">
-        <div class="row" style="justify-content:space-between;">
+        <div class="profileTop">
           <div class="row" style="gap:12px;">
             <div id="profAva" style="width:46px;height:46px;border-radius:999px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-weight:1000;overflow:hidden;"></div>
             <div class="col" style="gap:4px;">
@@ -877,34 +886,38 @@
               <div class="muted" id="profUser">@</div>
             </div>
           </div>
+          <div class="balanceChip" id="profileBalanceChip">TON: 0 • ⭐: 0</div>
         </div>
+
+        <div class="muted" id="lastGameInfo" style="margin-top:8px;"></div>
 
         <div style="height:12px;"></div>
 
-        <div class="row" style="justify-content:space-between; gap:10px; align-items:center;">
-          <div class="muted">Баланс: <b id="balanceVal">0</b></div>
-          <button class="btn gray" id="btnTopup">Пополнить</button>
-        </div>
         <div class="muted" id="balanceBreakdown" style="margin-top:6px;">TON: 0 • STARS: 0</div>
         <div id="tonConnectMount" style="margin-top:8px;"></div>
-        <button class="btn gray" id="btnCheckTon" style="display:none; margin-top:8px;">Проверить оплату TON</button>
-        <div class="muted" id="tonOrderInfo" style="margin-top:6px; white-space:pre-wrap;"></div>
 
-        <div style="height:12px;"></div>
-
+        <div style="height:10px;"></div>
         <div class="row" style="justify-content:space-between; gap:12px;">
           <div class="col" style="flex:1; min-width: 220px;">
             <div class="muted">Быстрая игра</div>
-            <div class="row" style="align-items:center; gap:10px; margin-bottom:8px;">
-              <div class="muted" id="quickStakeLabel">Ставка: 50 ⭐</div>
-              <input class="input" id="quickStakeInput" type="number" min="50" step="50" value="50" style="max-width:120px;" />
-            </div>
             <div class="row">
               <button class="btn blue" id="btnQuick">Быстрая игра</button>
               <button class="btn gray" id="btnQuickCancel" style="display:none;">Отменить</button>
             </div>
           </div>
         </div>
+
+        <div style="height:12px;"></div>
+
+        <button class="btn gray" id="btnTopupTon">Пополнить TON</button>
+        <div class="row" id="tonTopupControls" style="margin-top:8px; display:none;">
+          <input class="input" id="topupTonInput" type="number" min="1" step="1" value="1" style="max-width:110px;" />
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn gray" id="btnTopupStars">Пополнить ⭐</button>
+          <input class="input" id="topupStarsInput" type="number" min="50" step="50" value="50" style="max-width:110px;" />
+        </div>
+        <div class="muted" id="tonOrderInfo" style="margin-top:6px; white-space:pre-wrap;"></div>
       </div>
     </div>
 
@@ -916,6 +929,12 @@
           <button class="btn gray" id="btnRefreshPub">Обновить</button>
         </div>
         <div style="height:10px;"></div>
+        <div class="filtersGrid">
+          <select class="input" id="filterCurrency"><option value="all">Валюта: все</option><option value="ton">Валюта: TON</option><option value="stars">Валюта: ⭐</option></select>
+          <select class="input" id="filterTransfer"><option value="all">Переводной: все</option><option value="on">Переводной: вкл</option><option value="off">Переводной: выкл</option></select>
+          <select class="input" id="filterThrow"><option value="all">Подкидывание: все</option><option value="neighbors">Подкидывание: соседи</option><option value="allOnly">Подкидывание: все игроки</option></select>
+          <select class="input" id="filterWin"><option value="all">Режим победы: все</option><option value="classic">Режим: классика</option><option value="draw">Режим: ничья</option></select>
+        </div>
         <div class="list" id="listPublic"></div>
         <div class="err" id="errPublic"></div>
       </div>
@@ -929,6 +948,12 @@
           <button class="btn gray" id="btnRefreshPriv">Обновить</button>
         </div>
         <div style="height:10px;"></div>
+        <div class="filtersGrid">
+          <select class="input" id="filterCurrencyPriv"><option value="all">Валюта: все</option><option value="ton">Валюта: TON</option><option value="stars">Валюта: ⭐</option></select>
+          <select class="input" id="filterTransferPriv"><option value="all">Переводной: все</option><option value="on">Переводной: вкл</option><option value="off">Переводной: выкл</option></select>
+          <select class="input" id="filterThrowPriv"><option value="all">Подкидывание: все</option><option value="neighbors">Подкидывание: соседи</option><option value="allOnly">Подкидывание: все игроки</option></select>
+          <select class="input" id="filterWinPriv"><option value="all">Режим победы: все</option><option value="classic">Режим: классика</option><option value="draw">Режим: ничья</option></select>
+        </div>
         <div class="list" id="listPrivate"></div>
         <div class="err" id="errPrivate"></div>
       </div>
@@ -939,6 +964,18 @@
       <div class="cardPanel">
         <div class="title">Создать лобби</div>
         <div style="height:10px;"></div>
+
+        <div class="row" style="align-items:center; gap:10px;">
+          <div class="muted">Валюта ставки:</div>
+          <button class="btn gray" id="btnCurTon">TON</button>
+          <button class="btn gray" id="btnCurStars">⭐</button>
+        </div>
+        <div class="row" style="align-items:center; gap:10px; margin-top:8px;">
+          <div class="muted" id="stakeLabel">Ставка: 1 TON</div>
+          <input id="stakeInput" class="stakeSlider" type="range" min="1" step="1" value="1" />
+        </div>
+
+        <div style="height:12px;"></div>
 
         <div class="row">
           <div class="col" style="flex:1; min-width:220px;">
@@ -1012,30 +1049,16 @@
 
         <div class="switch">
           <div class="check" id="chkPrivate"></div>
-          <div>Пароль</div>
+          <div>Приватное лобби (пароль)</div>
         </div>
-
         <div id="passWrap" style="margin-top:10px; display:none;">
           <input class="input" id="passInput" placeholder="Задай пароль (для закрытого)" inputmode="text" autocomplete="off" autocapitalize="off" />
         </div>
 
         <div style="height:12px;"></div>
 
-        <div class="row" style="align-items:center; gap:10px;">
-          <div class="muted">Валюта ставки:</div>
-          <button class="btn gray" id="btnCurTon">TON</button>
-          <button class="btn gray" id="btnCurStars">STARS</button>
-        </div>
-        <div class="row" style="align-items:center; gap:10px; margin-top:8px;">
-          <div class="muted" id="stakeLabel">Ставка: 1 TON</div>
-          <input class="input" id="stakeInput" type="number" min="1" step="1" value="1" style="max-width:140px;" />
-        </div>
-
-        <div style="height:12px;"></div>
-
         <div class="row">
-          <button class="btn green" id="btnCreateTon">Создать TON лобби</button>
-          <button class="btn blue" id="btnCreateStars">Создать STARS лобби</button>
+          <button class="btn green" id="btnCreateLobby">Создать TON</button>
         </div>
 
         <div class="err" id="errCreate"></div>
@@ -1088,6 +1111,7 @@
       <button class="btn gray" id="btnPass" style="display:none;">Пас</button>
       <button class="btn blue" id="btnEnd" style="display:none;">Бито</button>
       <button class="btn red" id="btnExitLobby" style="display:none;">Выйти (лобби)</button>
+      <button class="btn gray" id="btnInvite" style="display:none;">Пригласить</button>
     </div>
 
     <div class="topCenterControls">
@@ -1101,6 +1125,17 @@
       <div class="resultTitle" id="resultTitle">Игра окончена</div>
       <div class="resultMsg" id="resultMsg"></div>
       <button class="btn blue" id="btnToMenu">В меню</button>
+    </div>
+  </div>
+
+  <div class="resultOverlay" id="passwordOverlay" style="display:none;">
+    <div class="resultCard">
+      <div class="resultTitle">Введите пароль</div>
+      <input class="input" id="joinPasswordInput" placeholder="Пароль" />
+      <div class="row" style="margin-top:8px;">
+        <button class="btn blue" id="btnJoinWithPassword">Войти</button>
+        <button class="btn gray" id="btnCancelPassword">Отмена</button>
+      </div>
     </div>
   </div>
 
@@ -1201,15 +1236,22 @@
   }
   renderProfile();
   let currentBalances = { ton: 0, stars: 0 };
-  const balanceVal = document.getElementById("balanceVal");
   const balanceBreakdown = document.getElementById("balanceBreakdown");
+  const globalBalance = document.getElementById("globalBalance");
+  const profileBalanceChip = document.getElementById("profileBalanceChip");
   function renderBalance() {
     const ton = Number(currentBalances.ton || 0);
     const stars = Number(currentBalances.stars || 0);
-    balanceVal.textContent = `${ton.toFixed(2)} TON / ${Math.floor(stars)} ⭐`;
     balanceBreakdown.textContent = `TON: ${ton.toFixed(2)} • STARS: ${Math.floor(stars)}`;
+    if (globalBalance) globalBalance.textContent = `TON: ${ton.toFixed(2)} • ⭐: ${Math.floor(stars)}`;
+    if (profileBalanceChip) profileBalanceChip.textContent = `TON: ${ton.toFixed(2)} • ⭐: ${Math.floor(stars)}`;
   }
   renderBalance();
+  try {
+    const last = JSON.parse(localStorage.getItem("evil_last_result") || "null");
+    const row = document.getElementById("lastGameInfo");
+    if (last && row) row.textContent = "Последняя игра сохранена";
+  } catch {}
   if (inTG) {
     let tries = 0;
     const poll = setInterval(() => {
@@ -1309,6 +1351,11 @@
           return;
         }
         showError(message);
+        if (message === "Неверный пароль" && roomId) {
+          pendingPrivateJoin = { id: roomId };
+          joinPasswordInput.value = "";
+          passwordOverlay.style.display = "flex";
+        }
         return;
       }
       if (msg.type === "emoji") {
@@ -1413,19 +1460,7 @@
   // ===== Quick match
   const btnQuick = document.getElementById("btnQuick");
   const btnQuickCancel = document.getElementById("btnQuickCancel");
-  const quickStakeInput = document.getElementById("quickStakeInput");
-  const quickStakeLabel = document.getElementById("quickStakeLabel");
   let quickStake = 50;
-  function renderQuickStake() {
-    if (!Number.isInteger(quickStake) || quickStake < 50 || quickStake % 50 !== 0) quickStake = 50;
-    quickStakeInput.value = String(quickStake);
-    quickStakeLabel.textContent = `Ставка: ${quickStake} ⭐`;
-  }
-  quickStakeInput.oninput = () => {
-    quickStake = Math.max(50, Math.round(Number(quickStakeInput.value || 0) / 50) * 50);
-    renderQuickStake();
-  };
-  renderQuickStake();
   function updateQuickUI(){
     btnQuick.style.display = quickSearching ? "none" : "inline-block";
     btnQuickCancel.style.display = quickSearching ? "inline-block" : "none";
@@ -1433,126 +1468,104 @@
   updateQuickUI();
 
   btnQuick.onclick = () => {
-    sendMsg({ type:"quick_match", userKey, profile, stake: quickStake, currency:"stars" });
+    if (currentBalances.ton >= 1) {
+      sendMsg({ type:"quick_match", userKey, profile, stake: 1, currency:"ton" });
+    } else if (currentBalances.stars >= 50) {
+      sendMsg({ type:"quick_match", userKey, profile, stake: 50, currency:"stars" });
+    } else {
+      alert("Недостаточно средств");
+    }
   };
   btnQuickCancel.onclick = () => {
     sendMsg({ type:"quick_cancel", userKey });
   };
 
-  const btnTopup = document.getElementById("btnTopup");
-  const btnCheckTon = document.getElementById("btnCheckTon");
+  const btnTopupTon = document.getElementById("btnTopupTon");
+  const btnTopupStars = document.getElementById("btnTopupStars");
+  const topupTonInput = document.getElementById("topupTonInput");
+  const topupStarsInput = document.getElementById("topupStarsInput");
+  const tonTopupControls = document.getElementById("tonTopupControls");
   const tonOrderInfo = document.getElementById("tonOrderInfo");
   const tonConnectManifestUrl = location.origin + "/tonconnect-manifest.json";
-  const tonConnectUI = (window.TON_CONNECT_UI && inTG)
+  const tonConnectUI = (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI)
     ? new TON_CONNECT_UI.TonConnectUI({ manifestUrl: tonConnectManifestUrl, buttonRootId: "tonConnectMount" })
     : null;
-  let pendingTonOrder = null;
 
-  btnTopup.onclick = async () => {
-    const devSecret = localStorage.getItem("dev_admin_secret") || "";
+  async function fetchJsonSafe(url, payload) {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    });
+    const ct = String(resp.headers.get("content-type") || "").toLowerCase();
+    const text = await resp.text();
+    let json = null;
+    if (ct.includes("application/json")) {
+      try { json = JSON.parse(text); } catch {}
+    }
+    if (!json) throw new Error(text.startsWith("<") ? "Сервер вернул HTML вместо JSON" : (text || "bad_response"));
+    if (!resp.ok || !json.ok) throw new Error(json.error || "request_failed");
+    return json;
+  }
+
+  function syncTonTopupUi() {
+    const connected = !!(tonConnectUI && tonConnectUI.connected);
+    tonTopupControls.style.display = connected ? "flex" : "none";
+    btnTopupTon.textContent = connected ? "Пополнить TON" : "Подключить TON кошелек";
+  }
+
+  if (tonConnectUI && typeof tonConnectUI.onStatusChange === "function") {
+    tonConnectUI.onStatusChange(() => syncTonTopupUi());
+  }
+  setTimeout(syncTonTopupUi, 300);
+
+  btnTopupStars.onclick = async () => {
     const userId = (inTG && tg.initDataUnsafe?.user?.id) ? String(tg.initDataUnsafe.user.id) : String(userKey || "").replace(/^tg:/, "");
-    if (devSecret) {
-      const currency = (prompt("Валюта (ton/stars)", "stars") || "").toLowerCase();
-      const amount = Number(prompt("Сумма пополнения", "100") || "0");
-      if (!Number.isFinite(amount) || amount <= 0) return;
-      try {
-        const resp = await fetch("/admin/topup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, amount, currency, secret: devSecret })
-        });
-        const data = await resp.json();
-        if (!resp.ok || !data.ok) throw new Error(data.error || "topup_failed");
-        if (data.balances) currentBalances = data.balances;
-        renderBalance();
-      } catch {
-        alert("Ошибка пополнения");
-      }
-      return;
-    }
-    const method = prompt("Выберите: stars / ton", "stars");
-    if (!method) return;
-    if (method.toLowerCase() === "stars") {
-      const stars = Number(prompt("Сумма stars (мин 50, шаг 50)", "50") || "0");
-      if (!Number.isInteger(stars) || stars < 50 || stars % 50 !== 0) { alert("Некорректная сумма"); return; }
-      try {
-        const r = await fetch("/pay/stars/link", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, stars })
-        });
-        const j = await r.json();
-        if (!r.ok || !j.ok || !j.url) throw new Error(j.error || "stars_link_failed");
-        if (tg && typeof tg.openInvoice === "function") {
-          tg.openInvoice(j.url, (status) => {
-            if (status === "paid") alert("Оплата прошла, ждём начисление");
-          });
-        } else {
-          window.open(j.url, "_blank");
-        }
-      } catch (e) {
-        alert("Ошибка Stars: " + (e?.message || "unknown"));
-      }
-      return;
-    }
-    if (method.toLowerCase() === "ton") {
-      if (!tonConnectUI) { alert("TON Connect недоступен"); return; }
-      const ton = Number(prompt("Сумма TON (мин 1, шаг 1)", "1") || "0");
-      if (!Number.isInteger(ton) || ton < 1) { alert("Некорректная сумма"); return; }
-      try {
-        if (!tonConnectUI.connected) await tonConnectUI.openModal();
-        const o = await fetch("/pay/ton/order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, ton })
-        });
-        const ord = await o.json();
-        if (!o.ok || !ord.ok) throw new Error(ord.error || "order_failed");
-        pendingTonOrder = ord;
-        btnCheckTon.style.display = "inline-block";
-        tonOrderInfo.textContent = `Отправьте TON:\nКуда: ${ord.to}\nСумма (nano): ${ord.amountNano}\nКомментарий: ${ord.comment}`;
-        let payload = "";
-        if (window.TonWeb) {
-          const cell = new TonWeb.boc.Cell();
-          cell.bits.writeUint(0, 32);
-          cell.bits.writeString(ord.comment);
-          payload = TonWeb.utils.bytesToBase64(await cell.toBoc());
-        }
-        await tonConnectUI.sendTransaction({
-          validUntil: Math.floor(Date.now() / 1000) + 600,
-          messages: [{ address: ord.to, amount: ord.amountNano, payload }]
-        });
-        alert("Транзакция отправлена. Нажмите 'Проверить оплату TON'.");
-      } catch (e) {
-        alert("Ошибка TON: " + (e?.message || "unknown"));
-      }
-      return;
+    const stars = Math.max(50, Math.round(Number(topupStarsInput.value || 0) / 50) * 50);
+    topupStarsInput.value = String(stars);
+    try {
+      const j = await fetchJsonSafe("/pay/stars/link", { userId, stars });
+      if (tg && typeof tg.openInvoice === "function") tg.openInvoice(j.url);
+      else alert("Оплата доступна только в Telegram");
+    } catch (e) {
+      alert("Ошибка Stars: " + (e?.message || "unknown"));
     }
   };
 
-  btnCheckTon.onclick = async () => {
-    const userId = (inTG && tg.initDataUnsafe?.user?.id) ? String(tg.initDataUnsafe.user.id) : String(userKey || "").replace(/^tg:/, "");
-    if (!pendingTonOrder?.orderId) return;
+  btnTopupTon.onclick = async () => {
     try {
-      const c = await fetch("/pay/ton/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: pendingTonOrder.orderId, userId })
+      if (!tonConnectUI) throw new Error("TON Connect недоступен");
+      if (!tonConnectUI.connected) {
+        await tonConnectUI.openModal();
+        return;
+      }
+      const userId = (inTG && tg.initDataUnsafe?.user?.id) ? String(tg.initDataUnsafe.user.id) : String(userKey || "").replace(/^tg:/, "");
+      const ton = Math.max(1, Math.round(Number(topupTonInput.value || 0)));
+      topupTonInput.value = String(ton);
+      const ord = await fetchJsonSafe("/pay/ton/order", { userId, ton });
+      await tonConnectUI.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        messages: [{ address: ord.to, amount: ord.amountNano }]
       });
-      const cj = await c.json();
-      if (!c.ok || !cj.ok) { alert("Пока не найдено в блокчейне"); return; }
-      alert("TON начислены");
-      pendingTonOrder = null;
-      btnCheckTon.style.display = "none";
-      tonOrderInfo.textContent = "";
-    } catch {
-      alert("Ошибка проверки");
+      const started = Date.now();
+      while (Date.now() - started < 90000) {
+        try {
+          await fetchJsonSafe("/pay/ton/confirm", { orderId: ord.orderId, userId });
+          tonOrderInfo.textContent = `Вы пополнили ${ton} TON успешно`;
+          return;
+        } catch {}
+        await new Promise(r => setTimeout(r, 2500));
+      }
+      tonOrderInfo.textContent = "Транзакция отправлена, подтверждение занимает больше времени";
+    } catch (e) {
+      alert("Ошибка TON: " + (e?.message || "unknown"));
+    } finally {
+      syncTonTopupUi();
     }
   };
 
   // ===== Create lobby
   let createPlayers = 2;
-  let createPrivate = false;
   let createTransfer = false;
   let createWinMode = "classic";
   let createThrowInMode = "all";
@@ -1574,19 +1587,29 @@
     btnCurStars.style.opacity = createCurrency === "stars" ? "1" : ".7";
     if (createCurrency === "ton") {
       stakeInput.min = "1";
+      stakeInput.max = "100";
       stakeInput.step = "1";
       if (!Number.isInteger(createStake) || createStake < 1) createStake = 1;
       stakeLabel.textContent = `Ставка: ${createStake} TON`;
     } else {
       stakeInput.min = "50";
+      stakeInput.max = "10000";
       stakeInput.step = "50";
       if (!Number.isInteger(createStake) || createStake < 50 || createStake % 50 !== 0) createStake = 50;
       stakeLabel.textContent = `Ставка: ${createStake} ⭐`;
     }
     stakeInput.value = String(createStake);
+    if (btnCreateLobby) btnCreateLobby.textContent = createCurrency === "ton" ? "Создать TON" : "Создать ⭐";
   }
-  btnCurTon.onclick = () => { createCurrency = "ton"; createStake = 1; renderStakeUi(); };
-  btnCurStars.onclick = () => { createCurrency = "stars"; createStake = 50; renderStakeUi(); };
+  const btnCreateLobby = document.getElementById("btnCreateLobby");
+  function convertStake(target) {
+    if (target === createCurrency) return;
+    if (target === "stars") createStake = Math.max(50, Math.round((createStake * 100) / 50) * 50);
+    else createStake = Math.max(1, Math.floor(createStake / 100));
+    createCurrency = target;
+  }
+  btnCurTon.onclick = () => { convertStake("ton"); renderStakeUi(); };
+  btnCurStars.onclick = () => { convertStake("stars"); renderStakeUi(); };
   stakeInput.oninput = () => {
     createStake = Number(stakeInput.value || 0);
     if (createCurrency === "ton") {
@@ -1612,15 +1635,18 @@
   btnP5.onclick = () => { createPlayers=5; renderCreatePlayers(); renderThrowInMode(); };
   btnP6.onclick = () => { createPlayers=6; renderCreatePlayers(); renderThrowInMode(); };
 
+  let createPrivate = false;
   const chkPrivate = document.getElementById("chkPrivate");
   const passWrap = document.getElementById("passWrap");
   const passInput = document.getElementById("passInput");
-  function renderPrivate(){
+  function renderPrivateToggle(){
     chkPrivate.classList.toggle("on", createPrivate);
     passWrap.style.display = createPrivate ? "block" : "none";
+    if (!createPrivate) passInput.value = "";
   }
-  chkPrivate.onclick = () => { createPrivate = !createPrivate; renderPrivate(); };
-  renderPrivate();
+  chkPrivate.onclick = () => { createPrivate = !createPrivate; renderPrivateToggle(); };
+  renderPrivateToggle();
+
 
   const btnTransferOff = document.getElementById("btnTransferOff");
   const btnTransferOn = document.getElementById("btnTransferOn");
@@ -1714,22 +1740,13 @@
   }
 
   const errCreate = document.getElementById("errCreate");
-  function submitCreate(forceCurrency){
+  function submitCreate(){
     errCreate.textContent = "";
-    const pass = (passInput.value || "").trim();
-    if (createPrivate && pass.length < 1) {
-      errCreate.textContent = "Задай пароль для закрытого лобби";
-      return;
-    }
-    if (createPrivate) {
-      roomPass = pass;
-      localStorage.setItem("evil_roomPass", roomPass);
-    } else {
-      roomPass = "";
-      localStorage.setItem("evil_roomPass", "");
-    }
+    const pass = createPrivate ? (passInput.value || "").trim() : "";
+    roomPass = pass;
+    localStorage.setItem("evil_roomPass", roomPass);
 
-    const finalCurrency = forceCurrency || createCurrency;
+    const finalCurrency = createCurrency;
     let finalStake = Number(createStake);
     if (finalCurrency === "ton") {
       finalStake = Math.max(1, Math.round(finalStake));
@@ -1747,18 +1764,60 @@
       throwInMode: createThrowInMode,
       stake: finalStake,
       currency: finalCurrency,
-      isPrivate: createPrivate,
-      password: createPrivate ? pass : ""
+      password: pass
     });
   }
-  document.getElementById("btnCreateTon").onclick = () => submitCreate("ton");
-  document.getElementById("btnCreateStars").onclick = () => submitCreate("stars");
+  document.getElementById("btnCreateLobby").onclick = () => submitCreate();
 
   // ===== Lists render
   const listPublic = document.getElementById("listPublic");
   const listPrivate = document.getElementById("listPrivate");
   const errPublic = document.getElementById("errPublic");
   const errPrivate = document.getElementById("errPrivate");
+  const filterCurrency = document.getElementById("filterCurrency");
+  const filterTransfer = document.getElementById("filterTransfer");
+  const filterThrow = document.getElementById("filterThrow");
+  const filterWin = document.getElementById("filterWin");
+  const filterCurrencyPriv = document.getElementById("filterCurrencyPriv");
+  const filterTransferPriv = document.getElementById("filterTransferPriv");
+  const filterThrowPriv = document.getElementById("filterThrowPriv");
+  const filterWinPriv = document.getElementById("filterWinPriv");
+  const filterState = { currency: "all", transfer: "all", throwMode: "all", win: "all" };
+  function syncFilters() {
+    const pairs = [[filterCurrency, filterCurrencyPriv, "currency"], [filterTransfer, filterTransferPriv, "transfer"], [filterThrow, filterThrowPriv, "throwMode"], [filterWin, filterWinPriv, "win"]];
+    for (const [a,b,key] of pairs) { if (a) a.value = filterState[key]; if (b) b.value = filterState[key]; }
+  }
+  function bindFilter(el, key) { if (!el) return; el.onchange = () => { filterState[key] = el.value; syncFilters(); renderLists(); }; }
+  bindFilter(filterCurrency, "currency"); bindFilter(filterCurrencyPriv, "currency");
+  bindFilter(filterTransfer, "transfer"); bindFilter(filterTransferPriv, "transfer");
+  bindFilter(filterThrow, "throwMode"); bindFilter(filterThrowPriv, "throwMode");
+  bindFilter(filterWin, "win"); bindFilter(filterWinPriv, "win");
+  syncFilters();
+  const passwordOverlay = document.getElementById("passwordOverlay");
+  const joinPasswordInput = document.getElementById("joinPasswordInput");
+  let pendingPrivateJoin = null;
+  document.getElementById("btnCancelPassword").onclick = () => { pendingPrivateJoin = null; passwordOverlay.style.display = "none"; };
+  document.getElementById("btnJoinWithPassword").onclick = () => {
+    if (!pendingPrivateJoin) return;
+    const pass = (joinPasswordInput.value || "").trim();
+    roomId = pendingPrivateJoin.id;
+    roomPass = pass;
+    localStorage.setItem("evil_roomId", roomId);
+    localStorage.setItem("evil_roomPass", roomPass);
+    joinAttemptSource = "manual";
+    sendMsg({ type:"join_lobby", userKey, profile, roomId, password: pass });
+    passwordOverlay.style.display = "none";
+  };
+
+  function passFilters(it){
+    if (filterState.currency !== "all" && it.currency !== filterState.currency) return false;
+    if (filterState.transfer === "on" && !it.allowTransfer) return false;
+    if (filterState.transfer === "off" && it.allowTransfer) return false;
+    if (filterState.throwMode === "neighbors" && it.throwInMode !== "neighbors") return false;
+    if (filterState.throwMode === "allOnly" && it.throwInMode !== "all") return false;
+    if (filterState.win !== "all" && it.winMode !== filterState.win) return false;
+    return true;
+  }
 
   function renderLists(){
     listPublic.innerHTML = "";
@@ -1769,9 +1828,11 @@
       empty.textContent = "Публичных лобби нет.";
       listPublic.appendChild(empty);
     } else {
-      for (const it of lobbiesPublic) {
+      for (const it of lobbiesPublic.filter(passFilters)) {
         const div = document.createElement("div");
         div.className = "listItem";
+        const enoughBalance = Number(currentBalances[it.currency || "ton"] || 0) >= Number(it.stake || 0);
+        if (!enoughBalance) div.style.opacity = ".45";
 
         const top = document.createElement("div");
         top.className = "listTop";
@@ -1794,8 +1855,10 @@
         row.className = "row";
         const btn = document.createElement("button");
         btn.className = "btn blue";
-        btn.textContent = "Зайти";
+        btn.textContent = "Войти";
+        btn.disabled = !enoughBalance;
         btn.onclick = () => {
+          if (!enoughBalance) return alert("Недостаточно средств");
           roomId = it.id;
           localStorage.setItem("evil_roomId", roomId);
           roomPass = "";
@@ -1820,9 +1883,11 @@
       empty.textContent = "Закрытых лобби нет.";
       listPrivate.appendChild(empty);
     } else {
-      for (const it of lobbiesPrivate) {
+      for (const it of lobbiesPrivate.filter(passFilters)) {
         const div = document.createElement("div");
         div.className = "listItem";
+        const enoughBalance = Number(currentBalances[it.currency || "ton"] || 0) >= Number(it.stake || 0);
+        if (!enoughBalance) div.style.opacity = ".45";
 
         const top = document.createElement("div");
         top.className = "listTop";
@@ -1845,16 +1910,13 @@
         row.className = "row";
         const btn = document.createElement("button");
         btn.className = "btn gray";
-        btn.textContent = "Зайти (пароль)";
+        btn.textContent = "Войти";
+        btn.disabled = !enoughBalance;
         btn.onclick = () => {
-          const pass = prompt("Пароль:");
-          if (!pass) return;
-          roomId = it.id;
-          roomPass = pass;
-          localStorage.setItem("evil_roomId", roomId);
-          localStorage.setItem("evil_roomPass", roomPass);
-          joinAttemptSource = "manual";
-          sendMsg({ type:"join_lobby", userKey, profile, roomId, password: pass });
+          if (!enoughBalance) return alert("Недостаточно средств");
+          pendingPrivateJoin = it;
+          joinPasswordInput.value = "";
+          passwordOverlay.style.display = "flex";
         };
         row.appendChild(btn);
 
@@ -1870,6 +1932,7 @@
   const gameWrap = document.getElementById("gameWrap");
   const btnExitLobby = document.getElementById("btnExitLobby");
   const btnResign = document.getElementById("btnResign");
+  const btnInvite = document.getElementById("btnInvite");
 
   function showLobbyUI(isLobby){
     gameWrap.classList.add("active");
@@ -2162,6 +2225,18 @@
       const b = document.querySelector(`.avatarWrap[data-seat="${seat}"] .avatarBadge`);
       if (b) b.textContent = "💀";
     }
+    const pb = st.payoutBreakdown?.perRole || {};
+    const currencyLabel = st.currency === "stars" ? "⭐" : "TON";
+    for (const role of Object.keys(pb)) {
+      const seat = st.roles.indexOf(role);
+      if (seat < 0) continue;
+      const node = document.querySelector(`.enemyItem[data-seat="${seat}"] .enemyName`);
+      if (!node) continue;
+      const gain = Number(pb[role].payout || 0) + Number(pb[role].refund || 0) - Number(pb[role].stake || 0);
+      if (Math.abs(gain) < 0.001) continue;
+      node.textContent += ` ${gain > 0 ? "+" : ""}${Math.round(gain * 100) / 100} ${currencyLabel}`;
+    }
+    try { localStorage.setItem("evil_last_result", JSON.stringify({ at: Date.now(), currency: st.currency, perRole: pb, youRole: st.youRole })); } catch {}
   }
 
   function cssEscape(s){
@@ -2224,6 +2299,7 @@
     btnEnd.style.display = "none";
     btnExitLobby.style.display = "inline-block";
     btnResign.style.display = "none";
+    btnInvite.style.display = "inline-block";
 
     if (filled && lobbyReadyDeadlineTs && lobbyState.readyTimeoutMs) {
       setTimerState({ type: "lobby", deadline: lobbyReadyDeadlineTs, totalMs: lobbyState.readyTimeoutMs });
@@ -2311,6 +2387,7 @@
     btnEnd.style.display  = (gameState.phase !== "finished" && me === gameState.attacker && gameState.phase === "attack" && allDef) ? "inline-block" : "none";
     btnExitLobby.style.display = "none";
     btnResign.style.display = (gameState.phase !== "finished") ? "inline-block" : "none";
+    btnInvite.style.display = "none";
 
     if (typeof prevDiscardCount === "number" && typeof gameState.discardCount === "number") {
       pendingDiscardAnimation = gameState.discardCount > prevDiscardCount;
@@ -2763,6 +2840,18 @@ function enableTouchDrag(el, card){
     errPublic.textContent = text;
     errPrivate.textContent = text;
     // profile screen doesn't show errors to avoid extra hints
+  }
+
+
+  const urlJoinId = new URLSearchParams(location.search).get("join") || "";
+  const tgStart = tg?.initDataUnsafe?.start_param || "";
+  const startJoin = tgStart.startsWith("join_") ? tgStart.slice(5) : tgStart;
+  const deepJoinRoom = urlJoinId || startJoin;
+  if (deepJoinRoom) {
+    roomId = deepJoinRoom;
+    localStorage.setItem("evil_roomId", roomId);
+    joinAttemptSource = "manual";
+    setTimeout(() => sendMsg({ type:"join_lobby", userKey, profile, roomId }), 700);
   }
 
   // ===== Auto rejoin (silent)
