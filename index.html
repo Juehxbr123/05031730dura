@@ -236,6 +236,10 @@
       outline:none;
       touch-action: manipulation;
     }
+    .stakeSlider{ width:100%; accent-color:#38bdf8; }
+    .profileTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .balanceChip{ padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.12); font-size:12px; font-weight:900; white-space:nowrap; width:fit-content; margin-left:auto; }
+    .filtersGrid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 
     .switch{
       display:flex; align-items:center; gap:10px;
@@ -840,6 +844,8 @@
       .deckPanel{
         left: calc(-12px + var(--safe-l));
       }
+      .filtersGrid{ grid-template-columns:1fr; }
+      .balanceChip{ font-size:11px; padding:3px 8px; }
     }
     @media (min-width: 900px){
       :root{
@@ -872,7 +878,7 @@
     <!-- PROFILE -->
     <div class="screen active" id="screenProfile">
       <div class="cardPanel">
-        <div class="row" style="justify-content:space-between;">
+        <div class="profileTop">
           <div class="row" style="gap:12px;">
             <div id="profAva" style="width:46px;height:46px;border-radius:999px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-weight:1000;overflow:hidden;"></div>
             <div class="col" style="gap:4px;">
@@ -880,6 +886,7 @@
               <div class="muted" id="profUser">@</div>
             </div>
           </div>
+          <div class="balanceChip" id="profileBalanceChip">TON: 0 • ⭐: 0</div>
         </div>
 
         <div class="muted" id="lastGameInfo" style="margin-top:8px;"></div>
@@ -904,6 +911,7 @@
 
         <div style="height:12px;"></div>
 
+        <div style="height:10px;"></div>
         <div class="row" style="justify-content:space-between; gap:12px;">
           <div class="col" style="flex:1; min-width: 220px;">
             <div class="muted">Быстрая игра</div>
@@ -913,6 +921,18 @@
             </div>
           </div>
         </div>
+
+        <div style="height:12px;"></div>
+
+        <button class="btn gray" id="btnTopupTon">Пополнить TON</button>
+        <div class="row" id="tonTopupControls" style="margin-top:8px; display:none;">
+          <input class="input" id="topupTonInput" type="number" min="1" step="1" value="1" style="max-width:110px;" />
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn gray" id="btnTopupStars">Пополнить ⭐</button>
+          <input class="input" id="topupStarsInput" type="number" min="50" step="50" value="50" style="max-width:110px;" />
+        </div>
+        <div class="muted" id="tonOrderInfo" style="margin-top:6px; white-space:pre-wrap;"></div>
       </div>
     </div>
 
@@ -943,6 +963,12 @@
           <button class="btn gray" id="btnRefreshPriv">Обновить</button>
         </div>
         <div style="height:10px;"></div>
+        <div class="filtersGrid">
+          <select class="input" id="filterCurrencyPriv"><option value="all">Валюта: все</option><option value="ton">Валюта: TON</option><option value="stars">Валюта: ⭐</option></select>
+          <select class="input" id="filterTransferPriv"><option value="all">Переводной: все</option><option value="on">Переводной: вкл</option><option value="off">Переводной: выкл</option></select>
+          <select class="input" id="filterThrowPriv"><option value="all">Подкидывание: все</option><option value="neighbors">Подкидывание: соседи</option><option value="allOnly">Подкидывание: все игроки</option></select>
+          <select class="input" id="filterWinPriv"><option value="all">Режим победы: все</option><option value="classic">Режим: классика</option><option value="draw">Режим: ничья</option></select>
+        </div>
         <div class="list" id="listPrivate"></div>
         <div class="err" id="errPrivate"></div>
       </div>
@@ -1222,13 +1248,11 @@
   }
   renderProfile();
   let currentBalances = { ton: 0, stars: 0 };
-  const balanceVal = document.getElementById("balanceVal");
   const balanceBreakdown = document.getElementById("balanceBreakdown");
   const globalBalance = document.getElementById("globalBalance");
   function renderBalance() {
     const ton = Number(currentBalances.ton || 0);
     const stars = Number(currentBalances.stars || 0);
-    balanceVal.textContent = `${ton.toFixed(2)} TON / ${Math.floor(stars)} ⭐`;
     balanceBreakdown.textContent = `TON: ${ton.toFixed(2)} • STARS: ${Math.floor(stars)}`;
     if (globalBalance) globalBalance.textContent = `TON: ${ton.toFixed(2)} • ⭐: ${Math.floor(stars)}`;
   }
@@ -1476,7 +1500,6 @@
   const tonConnectUI = (window.TON_CONNECT_UI)
     ? new TON_CONNECT_UI.TonConnectUI({ manifestUrl: tonConnectManifestUrl, buttonRootId: "tonConnectMount" })
     : null;
-  let pendingTonOrder = null;
 
   async function pollTonConfirm(orderId, userId) {
     const started = Date.now();
@@ -1568,11 +1591,13 @@
     btnCurStars.style.opacity = createCurrency === "stars" ? "1" : ".7";
     if (createCurrency === "ton") {
       stakeInput.min = "1";
+      stakeInput.max = "100";
       stakeInput.step = "1";
       if (!Number.isInteger(createStake) || createStake < 1) createStake = 1;
       stakeLabel.textContent = `Ставка: ${createStake} TON`;
     } else {
       stakeInput.min = "50";
+      stakeInput.max = "10000";
       stakeInput.step = "50";
       if (!Number.isInteger(createStake) || createStake < 50 || createStake % 50 !== 0) createStake = 50;
       stakeLabel.textContent = `Ставка: ${createStake} ⭐`;
